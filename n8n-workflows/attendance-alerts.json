@@ -1,0 +1,195 @@
+{
+  "name": "EduPrime - Attendance Alerts",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtHour": 17
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 5 PM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH today_attendance AS (\n  SELECT \n    a.student_id,\n    a.batch_id,\n    a.status,\n    a.date\n  FROM attendance a\n  WHERE a.date = CURRENT_DATE\n),\nstudent_attendance_summary AS (\n  SELECT \n    s.id as student_id,\n    s.first_name,\n    s.last_name,\n    s.phone,\n    s.parent_phone,\n    s.email,\n    b.name as batch_name,\n    ta.status as today_status,\n    COUNT(CASE WHEN a.status = 'present' THEN 1 END) * 100.0 / \n      NULLIF(COUNT(a.id), 0) as attendance_percentage\n  FROM students s\n  JOIN student_batches sb ON s.id = sb.student_id\n  JOIN batches b ON sb.batch_id = b.id\n  LEFT JOIN today_attendance ta ON s.id = ta.student_id AND b.id = ta.batch_id\n  LEFT JOIN attendance a ON s.id = a.student_id AND a.date >= CURRENT_DATE - INTERVAL '30 days'\n  WHERE s.status = 'active'\n  GROUP BY s.id, s.first_name, s.last_name, s.phone, s.parent_phone, s.email, b.name, ta.status\n)\nSELECT * FROM student_attendance_summary\nWHERE today_status = 'absent' OR attendance_percentage < 75",
+        "additionalFields": {}
+      },
+      "id": "get-attendance-issues",
+      "name": "Get Attendance Issues",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [450, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credential",
+          "name": "EduPrime PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\nlet message = '';\nlet alertType = '';\n\nif (item.today_status === 'absent') {\n  alertType = 'daily_absent';\n  message = `Dear Parent,\\n\\nThis is to inform you that ${item.first_name} ${item.last_name} was absent from ${item.batch_name} class today (${new Date().toLocaleDateString('en-IN')}).\\n\\nIf this absence was unplanned, please ensure regular attendance for better academic progress.\\n\\nFor any queries, contact us at +91-XXXXXXXXXX\\n\\n- EduPrime Institute`;\n} else {\n  alertType = 'low_attendance';\n  const percentage = Math.round(item.attendance_percentage);\n  message = `Dear Parent,\\n\\n⚠️ ATTENDANCE ALERT\\n\\n${item.first_name} ${item.last_name}'s attendance in ${item.batch_name} is currently at ${percentage}%, which is below the required 75%.\\n\\nLow attendance can significantly impact academic performance. Please ensure regular attendance.\\n\\nCurrent Status:\\n- Batch: ${item.batch_name}\\n- Attendance: ${percentage}%\\n- Required: 75%\\n\\nFor any queries, contact us at +91-XXXXXXXXXX\\n\\n- EduPrime Institute`;\n}\n\nreturn {\n  ...item,\n  alert_type: alertType,\n  message,\n  recipient_phone: item.parent_phone || item.phone\n};"
+      },
+      "id": "prepare-alert",
+      "name": "Prepare Alert Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "split-batches",
+      "name": "Split Into Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_NUMBER_ID }}",
+        "recipientPhoneNumber": "={{ $json.recipient_phone }}",
+        "textBody": "={{ $json.message }}"
+      },
+      "id": "send-whatsapp",
+      "name": "Send WhatsApp Alert",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "whatsapp-credential",
+          "name": "WhatsApp Business API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO notifications (student_id, type, channel, message, status, sent_at)\nVALUES (\n  '={{ $json.student_id }}',\n  '={{ $json.alert_type }}',\n  'whatsapp',\n  '={{ $json.message }}',\n  'sent',\n  NOW()\n)",
+        "additionalFields": {}
+      },
+      "id": "log-notification",
+      "name": "Log Notification",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [1250, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credential",
+          "name": "EduPrime PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "unit": "seconds",
+        "value": 2
+      },
+      "id": "rate-limit",
+      "name": "Rate Limit (2s)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1450, 300]
+    }
+  ],
+  "connections": {
+    "Daily 5 PM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Attendance Issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Attendance Issues": {
+      "main": [
+        [
+          {
+            "node": "Prepare Alert Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Alert Message": {
+      "main": [
+        [
+          {
+            "node": "Split Into Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Batches": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Alert": {
+      "main": [
+        [
+          {
+            "node": "Log Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Notification": {
+      "main": [
+        [
+          {
+            "node": "Rate Limit (2s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limit (2s)": {
+      "main": [
+        [
+          {
+            "node": "Split Into Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": ["automation", "attendance", "alerts"]
+}

@@ -1,0 +1,241 @@
+{
+  "name": "EduPrime - Daily Fee Reminders",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 9 AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT f.id, f.amount, f.due_date, f.fee_type,\n       s.first_name, s.last_name, s.phone, s.parent_phone, s.email,\n       CURRENT_DATE - f.due_date as days_overdue\nFROM fees f\nJOIN students s ON f.student_id = s.id\nWHERE f.status = 'pending'\n  AND f.due_date <= CURRENT_DATE + INTERVAL '7 days'\nORDER BY f.due_date ASC",
+        "additionalFields": {}
+      },
+      "id": "postgres-query",
+      "name": "Get Pending Fees",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [450, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credential",
+          "name": "EduPrime PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.days_overdue }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "filter-overdue",
+      "name": "Filter Overdue",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\nconst daysOverdue = item.days_overdue;\nlet urgency = 'reminder';\nlet message = '';\n\nif (daysOverdue > 15) {\n  urgency = 'final_notice';\n  message = `🚨 FINAL NOTICE: Dear ${item.first_name}, your fee of ₹${item.amount} is overdue by ${daysOverdue} days. Please pay immediately to avoid service disruption. Fee Type: ${item.fee_type}.`;\n} else if (daysOverdue > 7) {\n  urgency = 'urgent';\n  message = `⚠️ URGENT: Dear ${item.first_name}, your ${item.fee_type} fee of ₹${item.amount} is ${daysOverdue} days overdue. Please clear your dues at the earliest.`;\n} else if (daysOverdue > 0) {\n  urgency = 'overdue';\n  message = `Dear ${item.first_name}, your ${item.fee_type} fee of ₹${item.amount} is overdue by ${daysOverdue} days. Please pay at your earliest convenience.`;\n} else {\n  message = `Dear ${item.first_name}, this is a friendly reminder that your ${item.fee_type} fee of ₹${item.amount} is due on ${item.due_date}. Please ensure timely payment.`;\n}\n\nmessage += '\\n\\nFor payment queries, contact: +91-XXXXXXXXXX\\n- EduPrime Institute';\n\nreturn {\n  ...item,\n  urgency,\n  message,\n  whatsapp_number: item.phone,\n  parent_whatsapp: item.parent_phone\n};"
+      },
+      "id": "prepare-message",
+      "name": "Prepare Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_NUMBER_ID }}",
+        "recipientPhoneNumber": "={{ $json.whatsapp_number }}",
+        "textBody": "={{ $json.message }}"
+      },
+      "id": "send-whatsapp-student",
+      "name": "Send WhatsApp to Student",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1050, 200],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "whatsapp-credential",
+          "name": "WhatsApp Business API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.parent_whatsapp }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "check-parent-phone",
+      "name": "Has Parent Phone?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_NUMBER_ID }}",
+        "recipientPhoneNumber": "={{ $json.parent_whatsapp }}",
+        "textBody": "={{ $json.message }}"
+      },
+      "id": "send-whatsapp-parent",
+      "name": "Send WhatsApp to Parent",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1250, 400],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "whatsapp-credential",
+          "name": "WhatsApp Business API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO notifications (student_id, type, channel, message, status, sent_at)\nSELECT \n  s.id,\n  'fee_reminder',\n  'whatsapp',\n  '={{ $json.message }}',\n  'sent',\n  NOW()\nFROM students s WHERE s.phone = '={{ $json.whatsapp_number }}'",
+        "additionalFields": {}
+      },
+      "id": "log-notification",
+      "name": "Log Notification",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [1450, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credential",
+          "name": "EduPrime PostgreSQL"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily 9 AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Fees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Fees": {
+      "main": [
+        [
+          {
+            "node": "Filter Overdue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Overdue": {
+      "main": [
+        [
+          {
+            "node": "Prepare Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Message": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp to Student",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Has Parent Phone?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp to Student": {
+      "main": [
+        [
+          {
+            "node": "Log Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Parent Phone?": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp to Parent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp to Parent": {
+      "main": [
+        [
+          {
+            "node": "Log Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["automation", "fees", "reminders"]
+}

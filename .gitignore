@@ -1,0 +1,35 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env/secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+backend/logs/
+*.log
+
+# Uploads / Generated
+uploads/
+backend/uploads/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Local auth/credentials (DO NOT COMMIT)
+credentials/
+**/credentials.txt
+
+# Database data (if any)
+*.sqlite
+
+# Docker overrides
+docker-compose.override.yml

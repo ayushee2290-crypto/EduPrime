@@ -1,0 +1,244 @@
+{
+  "name": "EduPrime - Daily Management Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtHour": 18
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 6 PM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Today's attendance summary\nWITH today_attendance AS (\n  SELECT \n    COUNT(DISTINCT student_id) as total_marked,\n    COUNT(CASE WHEN status = 'present' THEN 1 END) as present_count,\n    COUNT(CASE WHEN status = 'absent' THEN 1 END) as absent_count,\n    COUNT(CASE WHEN status = 'late' THEN 1 END) as late_count\n  FROM attendance\n  WHERE date = CURRENT_DATE\n),\n-- Today's fee collection\nfee_collection AS (\n  SELECT \n    COUNT(*) as payments_count,\n    COALESCE(SUM(amount), 0) as total_collected\n  FROM fees\n  WHERE payment_date = CURRENT_DATE AND status = 'paid'\n),\n-- Pending fees summary\npending_fees AS (\n  SELECT \n    COUNT(*) as pending_count,\n    COALESCE(SUM(amount), 0) as pending_amount,\n    COUNT(CASE WHEN due_date < CURRENT_DATE THEN 1 END) as overdue_count,\n    COALESCE(SUM(CASE WHEN due_date < CURRENT_DATE THEN amount END), 0) as overdue_amount\n  FROM fees\n  WHERE status IN ('pending', 'overdue')\n),\n-- New inquiries today\nnew_inquiries AS (\n  SELECT COUNT(*) as count\n  FROM inquiries\n  WHERE DATE(created_at) = CURRENT_DATE\n),\n-- Low attendance students (below 75%)\nlow_attendance AS (\n  SELECT COUNT(DISTINCT s.id) as count\n  FROM students s\n  JOIN attendance a ON s.id = a.student_id\n  WHERE a.date >= CURRENT_DATE - INTERVAL '30 days'\n  GROUP BY s.id\n  HAVING COUNT(CASE WHEN a.status = 'present' THEN 1 END) * 100.0 / COUNT(*) < 75\n)\nSELECT \n  ta.*,\n  fc.*,\n  pf.*,\n  ni.count as new_inquiries,\n  la.count as low_attendance_students\nFROM today_attendance ta\nCROSS JOIN fee_collection fc\nCROSS JOIN pending_fees pf\nCROSS JOIN new_inquiries ni\nCROSS JOIN low_attendance la",
+        "additionalFields": {}
+      },
+      "id": "get-daily-stats",
+      "name": "Get Daily Statistics",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [450, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credential",
+          "name": "EduPrime PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  b.name as batch_name,\n  COUNT(CASE WHEN a.status = 'present' THEN 1 END) as present,\n  COUNT(CASE WHEN a.status = 'absent' THEN 1 END) as absent,\n  ROUND(COUNT(CASE WHEN a.status = 'present' THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0), 1) as attendance_rate\nFROM batches b\nJOIN attendance a ON b.id = a.batch_id\nWHERE a.date = CURRENT_DATE\nGROUP BY b.name\nORDER BY attendance_rate DESC",
+        "additionalFields": {}
+      },
+      "id": "get-batch-attendance",
+      "name": "Get Batch Attendance",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [450, 500],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credential",
+          "name": "EduPrime PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const stats = $('Get Daily Statistics').first().json;\nconst batchAttendance = $('Get Batch Attendance').all().map(i => i.json);\n\nconst today = new Date().toLocaleDateString('en-IN', {\n  weekday: 'long',\n  year: 'numeric',\n  month: 'long',\n  day: 'numeric'\n});\n\nconst attendanceRate = stats.total_marked > 0 \n  ? ((stats.present_count / stats.total_marked) * 100).toFixed(1) \n  : 0;\n\nlet batchSummary = batchAttendance.map(b => \n  `• ${b.batch_name}: ${b.present}/${b.present + b.absent} (${b.attendance_rate}%)`\n).join('\\n');\n\nif (!batchSummary) batchSummary = '• No attendance data available';\n\nconst report = `📊 *EduPrime Daily Report*\n📅 ${today}\n\n*━━━ 📋 ATTENDANCE SUMMARY ━━━*\n✅ Present: ${stats.present_count}\n❌ Absent: ${stats.absent_count}\n⏰ Late: ${stats.late_count}\n📈 Rate: ${attendanceRate}%\n\n*Batch-wise Attendance:*\n${batchSummary}\n\n*━━━ 💰 FEE COLLECTION ━━━*\n💵 Today's Collection: ₹${Number(stats.total_collected).toLocaleString('en-IN')}\n📝 Payments: ${stats.payments_count}\n\n*Pending Summary:*\n⏳ Pending: ₹${Number(stats.pending_amount).toLocaleString('en-IN')} (${stats.pending_count} students)\n🚨 Overdue: ₹${Number(stats.overdue_amount).toLocaleString('en-IN')} (${stats.overdue_count} students)\n\n*━━━ 📞 INQUIRIES ━━━*\n🆕 New Today: ${stats.new_inquiries}\n\n*━━━ ⚠️ ALERTS ━━━*\n📉 Low Attendance Students: ${stats.low_attendance_students}\n\n_Report generated automatically by EduPrime_`;\n\nreturn [{\n  json: {\n    report,\n    stats,\n    batchAttendance\n  }\n}];"
+      },
+      "id": "generate-report",
+      "name": "Generate Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_NUMBER_ID }}",
+        "recipientPhoneNumber": "={{ $env.ADMIN_WHATSAPP }}",
+        "textBody": "={{ $json.report }}"
+      },
+      "id": "send-whatsapp-admin",
+      "name": "Send to Admin (WhatsApp)",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [950, 300],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "whatsapp-credential",
+          "name": "WhatsApp Business API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#daily-reports",
+        "text": "={{ $json.report }}",
+        "otherOptions": {}
+      },
+      "id": "send-slack",
+      "name": "Send to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [950, 500],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credential",
+          "name": "EduPrime Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_FROM_EMAIL }}",
+        "toEmail": "={{ $env.ADMIN_EMAIL }}",
+        "subject": "=EduPrime Daily Report - {{ new Date().toLocaleDateString('en-IN') }}",
+        "emailType": "html",
+        "html": "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; }\n    .header { background: #4e73df; color: white; padding: 20px; }\n    .section { margin: 20px 0; padding: 15px; background: #f8f9fc; border-radius: 8px; }\n    .stat { display: inline-block; margin: 10px; padding: 15px; background: white; border-radius: 8px; text-align: center; }\n    .stat h3 { margin: 0; color: #4e73df; }\n    .stat p { margin: 5px 0 0; color: #666; }\n    table { width: 100%; border-collapse: collapse; }\n    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }\n    th { background: #4e73df; color: white; }\n  </style>\n</head>\n<body>\n  <div class=\"header\">\n    <h1>📊 EduPrime Daily Report</h1>\n    <p>{{ new Date().toLocaleDateString('en-IN', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'}) }}</p>\n  </div>\n  \n  <div class=\"section\">\n    <h2>📋 Attendance Summary</h2>\n    <div class=\"stat\"><h3>{{ $json.stats.present_count }}</h3><p>Present</p></div>\n    <div class=\"stat\"><h3>{{ $json.stats.absent_count }}</h3><p>Absent</p></div>\n    <div class=\"stat\"><h3>{{ $json.stats.late_count }}</h3><p>Late</p></div>\n  </div>\n  \n  <div class=\"section\">\n    <h2>💰 Fee Collection</h2>\n    <div class=\"stat\"><h3>₹{{ Number($json.stats.total_collected).toLocaleString('en-IN') }}</h3><p>Today's Collection</p></div>\n    <div class=\"stat\"><h3>₹{{ Number($json.stats.pending_amount).toLocaleString('en-IN') }}</h3><p>Pending</p></div>\n    <div class=\"stat\"><h3>₹{{ Number($json.stats.overdue_amount).toLocaleString('en-IN') }}</h3><p>Overdue</p></div>\n  </div>\n  \n  <div class=\"section\">\n    <h2>📞 Inquiries</h2>\n    <div class=\"stat\"><h3>{{ $json.stats.new_inquiries }}</h3><p>New Today</p></div>\n  </div>\n  \n  <p style=\"text-align: center; color: #666; margin-top: 30px;\">This report was generated automatically by EduPrime Management System</p>\n</body>\n</html>"
+      },
+      "id": "send-email-admin",
+      "name": "Send Email to Admin",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [950, 700],
+      "credentials": {
+        "smtp": {
+          "id": "smtp-credential",
+          "name": "EduPrime SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO reports (report_type, report_date, data, generated_at)\nVALUES (\n  'daily_summary',\n  CURRENT_DATE,\n  '={{ JSON.stringify($json) }}',\n  NOW()\n)",
+        "additionalFields": {}
+      },
+      "id": "save-report",
+      "name": "Save Report to DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [1200, 400],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credential",
+          "name": "EduPrime PostgreSQL"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily 6 PM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Daily Statistics",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Batch Attendance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Daily Statistics": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Batch Attendance": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report": {
+      "main": [
+        [
+          {
+            "node": "Send to Admin (WhatsApp)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send to Slack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Email to Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Admin (WhatsApp)": {
+      "main": [
+        [
+          {
+            "node": "Save Report to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Slack": {
+      "main": [
+        [
+          {
+            "node": "Save Report to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email to Admin": {
+      "main": [
+        [
+          {
+            "node": "Save Report to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": ["automation", "reports", "management"]
+}

@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduPrime - Student Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --success: #28a745;
+            --warning: #ffc107;
+            --danger: #dc3545;
+        }
+        body {
+            background: #f5f7fb;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 250px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            padding: 20px;
+            z-index: 1000;
+        }
+        .sidebar .logo {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 12px 15px;
+            border-radius: 10px;
+            margin-bottom: 5px;
+            transition: all 0.3s;
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        .sidebar .nav-link i {
+            margin-right: 10px;
+            width: 20px;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .stat-card .icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-card .label {
+            color: #666;
+            font-size: 14px;
+        }
+        .card-custom {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            border: none;
+        }
+        .card-custom .card-header {
+            background: transparent;
+            border-bottom: 1px solid #eee;
+            padding: 20px;
+            font-weight: 600;
+        }
+        .progress-ring {
+            width: 120px;
+            height: 120px;
+        }
+        .grade-badge {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .grade-a { background: #d4edda; color: #155724; }
+        .grade-b { background: #cce5ff; color: #004085; }
+        .grade-c { background: #fff3cd; color: #856404; }
+        .grade-d { background: #f8d7da; color: #721c24; }
+        .table-hover tbody tr:hover {
+            background: #f8f9fa;
+        }
+        .subject-card {
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 0 10px 10px 0;
+            margin-bottom: 10px;
+        }
+        .attendance-calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+        .attendance-day {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        .attendance-day.present { background: #d4edda; color: #155724; }
+        .attendance-day.absent { background: #f8d7da; color: #721c24; }
+        .attendance-day.late { background: #fff3cd; color: #856404; }
+        .attendance-day.holiday { background: #e2e3e5; color: #383d41; }
+        .user-dropdown {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+        }
+        .user-dropdown .btn {
+            width: 100%;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            text-align: left;
+            padding: 12px 15px;
+            border-radius: 10px;
+        }
+        .exam-result-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        @media (max-width: 768px) {
+            .sidebar { width: 70px; padding: 10px; }
+            .sidebar .logo span, .sidebar .nav-link span { display: none; }
+            .main-content { margin-left: 70px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">
+            <i class="bi bi-mortarboard-fill"></i>
+            <span>EduPrime</span>
+        </div>
+        <nav class="nav flex-column">
+            <a class="nav-link active" href="#" onclick="showSection('dashboard')">
+                <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+            </a>
+            <a class="nav-link" href="#" onclick="showSection('courses')">
+                <i class="bi bi-book"></i><span>Courses</span>
+            </a>
+            <a class="nav-link" href="#" onclick="showSection('results')">
+                <i class="bi bi-clipboard-data"></i><span>Results</span>
+            </a>
+            <a class="nav-link" href="#" onclick="showSection('attendance')">
+                <i class="bi bi-calendar-check"></i><span>Attendance</span>
+            </a>
+            <a class="nav-link" href="#" onclick="showSection('fees')">
+                <i class="bi bi-credit-card"></i><span>Fees</span>
+            </a>
+            <a class="nav-link" href="#" onclick="showSection('schedule')">
+                <i class="bi bi-clock"></i><span>Schedule</span>
+            </a>
+        </nav>
+        <div class="user-dropdown">
+            <div class="dropdown">
+                <button class="btn dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="bi bi-person-circle"></i>
+                    <span id="userName">Student</span>
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="showProfile()">Profile</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="logout()">Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Dashboard Section -->
+        <div id="dashboardSection" class="section">
+            <h4 class="mb-4">Welcome back, <span id="studentName">Student</span>! 👋</h4>
+            
+            <!-- Stats Row -->
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="value" id="attendancePercent">0%</div>
+                                <div class="label">Attendance</div>
+                            </div>
+                            <div class="icon" style="background: #e8f5e9; color: #4caf50;">
+                                <i class="bi bi-calendar-check"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="value" id="avgScore">0%</div>
+                                <div class="label">Avg. Score</div>
+                            </div>
+                            <div class="icon" style="background: #e3f2fd; color: #2196f3;">
+                                <i class="bi bi-graph-up"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="value" id="batchRank">#-</div>
+                                <div class="label">Batch Rank</div>
+                            </div>
+                            <div class="icon" style="background: #fff3e0; color: #ff9800;">
+                                <i class="bi bi-trophy"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="value" id="pendingFees">₹0</div>
+                                <div class="label">Pending Fees</div>
+                            </div>
+                            <div class="icon" style="background: #fce4ec; color: #e91e63;">
+                                <i class="bi bi-currency-rupee"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Exams & Schedule -->
+            <div class="row mt-4">
+                <div class="col-md-8">
+                    <div class="card card-custom">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-clipboard-data me-2"></i>Recent Exam Results</span>
+                            <a href="#" onclick="showSection('results')" class="btn btn-sm btn-outline-primary">View All</a>
+                        </div>
+                        <div class="card-body">
+                            <div id="recentExams">
+                                <p class="text-muted text-center">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card card-custom">
+                        <div class="card-header">
+                            <i class="bi bi-calendar-event me-2"></i>Upcoming Exams
+                        </div>
+                        <div class="card-body">
+                            <div id="upcomingExams">
+                                <p class="text-muted text-center">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subject Performance -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card card-custom">
+                        <div class="card-header">
+                            <i class="bi bi-bar-chart me-2"></i>Subject-wise Performance
+                        </div>
+                        <div class="card-body">
+                            <div id="subjectPerformance" class="row">
+                                <p class="text-muted text-center">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Courses Section -->
+        <div id="coursesSection" class="section" style="display:none;">
+            <h4 class="mb-4"><i class="bi bi-book me-2"></i>My Courses</h4>
+            <div id="coursesList" class="row">
+                <p class="text-muted">Loading courses...</p>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="section" style="display:none;">
+            <h4 class="mb-4"><i class="bi bi-clipboard-data me-2"></i>Exam Results</h4>
+            <div class="card card-custom">
+                <div class="card-header d-flex justify-content-between">
+                    <span>All Results</span>
+                    <select id="subjectFilter" class="form-select form-select-sm w-auto" onchange="filterResults()">
+                        <option value="">All Subjects</option>
+                    </select>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Exam</th>
+                                    <th>Subject</th>
+                                    <th>Marks</th>
+                                    <th>Percentage</th>
+                                    <th>Rank</th>
+                                    <th>Grade</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsTable">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Section -->
+        <div id="attendanceSection" class="section" style="display:none;">
+            <h4 class="mb-4"><i class="bi bi-calendar-check me-2"></i>Attendance</h4>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card card-custom">
+                        <div class="card-body text-center">
+                            <h5>Overall Attendance</h5>
+                            <div class="display-3 my-4" id="overallAttendance">0%</div>
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="h4 text-success" id="presentDays">0</div>
+                                    <small>Present</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="h4 text-danger" id="absentDays">0</div>
+                                    <small>Absent</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="h4 text-warning" id="lateDays">0</div>
+                                    <small>Late</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card card-custom">
+                        <div class="card-header">
+                            Attendance History
+                        </div>
+                        <div class="card-body">
+                            <div id="attendanceHistory" class="table-responsive">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fees Section -->
+        <div id="feesSection" class="section" style="display:none;">
+            <h4 class="mb-4"><i class="bi bi-credit-card me-2"></i>Fee Details</h4>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card card-custom mb-3">
+                        <div class="card-body">
+                            <h6 class="text-muted">Total Fees</h6>
+                            <h3 id="totalFees">₹0</h3>
+                        </div>
+                    </div>
+                    <div class="card card-custom mb-3" style="border-left: 4px solid #28a745;">
+                        <div class="card-body">
+                            <h6 class="text-muted">Paid</h6>
+                            <h3 class="text-success" id="paidFees">₹0</h3>
+                        </div>
+                    </div>
+                    <div class="card card-custom" style="border-left: 4px solid #dc3545;">
+                        <div class="card-body">
+                            <h6 class="text-muted">Pending</h6>
+                            <h3 class="text-danger" id="pendingFeesDetail">₹0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card card-custom">
+                        <div class="card-header">Fee Records</div>
+                        <div class="card-body">
+                            <div id="feeRecords" class="table-responsive">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedule Section -->
+        <div id="scheduleSection" class="section" style="display:none;">
+            <h4 class="mb-4"><i class="bi bi-clock me-2"></i>Class Schedule</h4>
+            <div id="scheduleContent" class="row">
+                <p class="text-muted">Loading schedule...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = '/api';
+        let token = localStorage.getItem('token');
+        let studentData = null;
+
+        // Check authentication
+        if (!token) {
+            window.location.href = '/login.html';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboard();
+        });
+
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            };
+            if (data) options.body = JSON.stringify(data);
+            
+            const response = await fetch(`${API_BASE}${endpoint}`, options);
+            return response.json();
+        }
+
+        async function loadDashboard() {
+            try {
+                const result = await apiCall('/performance/my-performance');
+                if (result.success) {
+                    studentData = result.data;
+                    renderDashboard(result.data);
+                }
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        function renderDashboard(data) {
+            // Student name
+            if (data.student) {
+                const name = `${data.student.first_name} ${data.student.last_name}`;
+                document.getElementById('studentName').textContent = name;
+                document.getElementById('userName').textContent = name;
+            }
+
+            // Stats
+            if (data.attendance_summary) {
+                document.getElementById('attendancePercent').textContent = 
+                    `${data.attendance_summary.attendance_percent || 0}%`;
+            }
+
+            if (data.subject_performance && data.subject_performance.length > 0) {
+                const avg = data.subject_performance.reduce((sum, s) => sum + parseFloat(s.avg_percentage || 0), 0) 
+                    / data.subject_performance.length;
+                document.getElementById('avgScore').textContent = `${avg.toFixed(1)}%`;
+            }
+
+            if (data.rank_info) {
+                document.getElementById('batchRank').textContent = 
+                    `#${data.rank_info.rank || '-'}`;
+            }
+
+            // Recent Exams
+            if (data.exam_performance && data.exam_performance.length > 0) {
+                const examsHtml = data.exam_performance.slice(0, 5).map(exam => `
+                    <div class="exam-result-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${exam.subject}</strong>
+                                <br><small class="text-muted">${new Date(exam.exam_date).toLocaleDateString()}</small>
+                            </div>
+                            <div class="text-end">
+                                <div class="h5 mb-0">${exam.marks_obtained}/${exam.total_marks}</div>
+                                <span class="badge bg-${exam.percentage >= 70 ? 'success' : exam.percentage >= 50 ? 'warning' : 'danger'}">
+                                    ${exam.percentage}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                document.getElementById('recentExams').innerHTML = examsHtml || '<p class="text-muted text-center">No recent exams</p>';
+            }
+
+            // Subject Performance
+            if (data.subject_performance && data.subject_performance.length > 0) {
+                const subjectHtml = data.subject_performance.map(subject => `
+                    <div class="col-md-4 mb-3">
+                        <div class="subject-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${subject.subject}</strong>
+                                    <br><small>${subject.total_exams} exams</small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="h5 mb-0 ${subject.avg_percentage >= 70 ? 'text-success' : subject.avg_percentage >= 50 ? 'text-warning' : 'text-danger'}">
+                                        ${subject.avg_percentage}%
+                                    </div>
+                                    <small>Best: ${subject.best_percentage}%</small>
+                                </div>
+                            </div>
+                            <div class="progress mt-2" style="height: 5px;">
+                                <div class="progress-bar ${subject.avg_percentage >= 70 ? 'bg-success' : subject.avg_percentage >= 50 ? 'bg-warning' : 'bg-danger'}" 
+                                     style="width: ${subject.avg_percentage}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                document.getElementById('subjectPerformance').innerHTML = subjectHtml;
+            }
+        }
+
+        function showSection(section) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+            // Show selected section
+            document.getElementById(section + 'Section').style.display = 'block';
+            // Update nav
+            document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+            event.target.closest('.nav-link').classList.add('active');
+
+            // Load section data
+            switch(section) {
+                case 'courses': loadCourses(); break;
+                case 'results': loadResults(); break;
+                case 'attendance': loadAttendance(); break;
+                case 'fees': loadFees(); break;
+                case 'schedule': loadSchedule(); break;
+            }
+        }
+
+        async function loadCourses() {
+            const result = await apiCall('/academic/courses');
+            if (result.success) {
+                const html = result.data.map(course => `
+                    <div class="col-md-4 mb-4">
+                        <div class="card card-custom h-100">
+                            <div class="card-body">
+                                <h5>${course.name}</h5>
+                                <p class="text-muted">${course.description || ''}</p>
+                                <div class="d-flex justify-content-between">
+                                    <span><i class="bi bi-clock me-1"></i>${course.duration_months} months</span>
+                                    <span><i class="bi bi-currency-rupee me-1"></i>${course.total_fee?.toLocaleString()}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                document.getElementById('coursesList').innerHTML = html || '<p class="text-muted">No courses available</p>';
+            }
+        }
+
+        async function loadResults() {
+            if (studentData && studentData.exam_performance) {
+                const exams = studentData.exam_performance;
+                const html = exams.map(exam => `
+                    <tr>
+                        <td>${new Date(exam.exam_date).toLocaleDateString()}</td>
+                        <td>${exam.exam_type}</td>
+                        <td>${exam.subject}</td>
+                        <td>${exam.marks_obtained}/${exam.total_marks}</td>
+                        <td>
+                            <span class="badge bg-${exam.percentage >= 70 ? 'success' : exam.percentage >= 50 ? 'warning' : 'danger'}">
+                                ${exam.percentage}%
+                            </span>
+                        </td>
+                        <td>${exam.rank || '-'}</td>
+                        <td><span class="badge bg-secondary">${exam.grade}</span></td>
+                    </tr>
+                `).join('');
+                document.getElementById('resultsTable').innerHTML = html || '<tr><td colspan="7" class="text-center">No results found</td></tr>';
+
+                // Populate subject filter
+                const subjects = [...new Set(exams.map(e => e.subject))];
+                document.getElementById('subjectFilter').innerHTML = 
+                    '<option value="">All Subjects</option>' + 
+                    subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+            }
+        }
+
+        async function loadAttendance() {
+            if (studentData && studentData.attendance_summary) {
+                const att = studentData.attendance_summary;
+                document.getElementById('overallAttendance').textContent = `${att.attendance_percent || 0}%`;
+                document.getElementById('presentDays').textContent = att.present || 0;
+                document.getElementById('absentDays').textContent = att.absent || 0;
+                document.getElementById('lateDays').textContent = att.late || 0;
+            }
+        }
+
+        async function loadFees() {
+            // This would need actual fee data from API
+            document.getElementById('totalFees').textContent = '₹75,000';
+            document.getElementById('paidFees').textContent = '₹50,000';
+            document.getElementById('pendingFeesDetail').textContent = '₹25,000';
+        }
+
+        async function loadSchedule() {
+            const result = await apiCall('/academic/batches/timings/summary');
+            if (result.success) {
+                const html = result.data.map(batch => `
+                    <div class="col-md-6 mb-3">
+                        <div class="card card-custom">
+                            <div class="card-body">
+                                <h6>${batch.course_name} - ${batch.batch_name}</h6>
+                                <p class="mb-1"><i class="bi bi-clock me-2"></i>${batch.start_time} - ${batch.end_time}</p>
+                                <p class="mb-1"><i class="bi bi-calendar me-2"></i>${batch.days_of_week?.join(', ') || 'Mon-Sat'}</p>
+                                <p class="mb-0"><i class="bi bi-person me-2"></i>${batch.faculty_name || 'TBD'}</p>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                document.getElementById('scheduleContent').innerHTML = html || '<p class="text-muted">No schedule available</p>';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>
