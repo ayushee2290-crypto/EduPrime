@@ -3,6 +3,38 @@ const router = express.Router();
 const Fee = require('../models/Fee');
 const logger = require('../config/logger');
 
+// List fees (compat endpoint for dashboard UI)
+// Supports: /api/fees?status=overdue|pending&limit=5
+router.get('/', async (req, res) => {
+    try {
+        const status = (req.query.status || '').toLowerCase();
+        const limit = req.query.limit ? parseInt(req.query.limit) : undefined;
+
+        let items = [];
+        if (status === 'overdue') {
+            const result = await Fee.getOverdueFees();
+            items = result;
+        } else if (status === 'pending') {
+            const result = await Fee.getPendingFees({});
+            items = result;
+        } else {
+            // Default to pending fees view
+            const result = await Fee.getPendingFees({});
+            items = result;
+        }
+
+        if (limit) items = items.slice(0, limit);
+        res.json(items);
+    } catch (error) {
+        logger.error('List fees error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch fees',
+            error: error.message
+        });
+    }
+});
+
 // Get pending fees
 router.get('/pending', async (req, res) => {
     try {

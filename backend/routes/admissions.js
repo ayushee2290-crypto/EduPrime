@@ -37,6 +37,38 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Alias endpoint for dashboard UI
+router.get('/inquiries', async (req, res) => {
+    try {
+        const filters = {
+            status: req.query.status,
+            target_course: req.query.target_course,
+            source: req.query.source,
+            counselor_id: req.query.counselor_id,
+            follow_up_due: req.query.follow_up_due === 'true',
+            search: req.query.search,
+            start_date: req.query.start_date,
+            end_date: req.query.end_date,
+            limit: req.query.limit ? parseInt(req.query.limit) : undefined
+        };
+
+        const inquiries = await Inquiry.findAll(filters);
+
+        res.json({
+            success: true,
+            count: inquiries.length,
+            data: inquiries
+        });
+    } catch (error) {
+        logger.error('Get inquiries error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch inquiries',
+            error: error.message
+        });
+    }
+});
+
 // Get follow-ups due today
 router.get('/follow-ups/due', async (req, res) => {
     try {

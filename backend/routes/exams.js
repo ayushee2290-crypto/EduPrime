@@ -56,6 +56,24 @@ router.get('/upcoming', async (req, res) => {
     }
 });
 
+// Compatibility route for dashboard UI
+router.get('/upcoming/list', async (req, res) => {
+    try {
+        const days = req.query.days ? parseInt(req.query.days) : 30;
+        const exams = await Exam.getUpcoming(req.query.batch_id, days);
+
+        // The dashboard expects a plain array in some places; keep it simple.
+        res.json(exams);
+    } catch (error) {
+        logger.error('Get upcoming exams (list) error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch upcoming exams',
+            error: error.message
+        });
+    }
+});
+
 // Get exam by ID
 router.get('/:id', async (req, res) => {
     try {

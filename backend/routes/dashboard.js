@@ -76,6 +76,54 @@ router.get('/overview', async (req, res) => {
     }
 });
 
+// Dashboard stats (compat endpoint for frontend/dashboard.html)
+// Returns flattened keys used by the UI: totalStudents, monthlyRevenue, avgAttendance, pendingFees
+router.get('/stats', async (req, res) => {
+    try {
+        const studentStats = await db.getOne(`SELECT COUNT(*)::int AS total_students FROM students`);
+
+        // Use student_fees if present; fall back to 0 when tables aren't created yet
+        let feeStats = { pending: 0, collected: 0 };
+        try {
+            const fees = await db.getOne(`
+                SELECT
+                    COALESCE(SUM(paid_amount), 0) as collected,
+                    COALESCE(SUM(balance_amount), 0) as pending
+                FROM student_fees
+                WHERE academic_year = $1
+            `, [process.env.CURRENT_SESSION || '2026-27']);
+            feeStats = {
+                collected: parseFloat(fees?.collected || 0),
+                pending: parseFloat(fees?.pending || 0)
+            };
+        } catch (_) {
+            // ignore if schema not present
+        }
+
+        // Attendance average (if view exists)
+        let avgAttendance = 0;
+        try {
+            const att = await db.getOne(`SELECT COALESCE(AVG(attendance_percentage), 0) as avg FROM vw_attendance_summary`);
+            avgAttendance = Math.round(parseFloat(att?.avg || 0));
+        } catch (_) {
+            // ignore if schema not present
+        }
+
+        res.json({
+            totalStudents: studentStats?.total_students || 0,
+            monthlyRevenue: feeStats.collected,
+            avgAttendance,
+            pendingFees: feeStats.pending
+        });
+    } catch (error) {
+        logger.error('Dashboard stats error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+});
+
 // Get revenue analytics
 router.get('/revenue', async (req, res) => {
     try {
