@@ -1,1 +1,41 @@
-{"success":true,"message":"MFA setup initiated. Scan the QR code with your authenticator app.","data":{"qrCode":"data:image/png;base64,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","manualKey":"O4XVMTDIEUZSUOLHORZTI2ZTPFOWGPSG","instructions":["1. Download Google Authenticator or Authy app","2. Scan the QR code or enter the manual key","3. Enter the 6-digit code to verify and enable MFA"]}}
+{{"success":true,"message":"MFA setup initiated. Scan the QR code with your authenticator app.","data":{"qrCode":"data:image/png;base64,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","manualKey":"O4XVMTDIEUZSUOLHORZTI2ZTPFOWGPSG","instructions":["1. Download Google Authenticator or Authy app","2. Scan the QR code or enter the manual key","3. Enter the 6-digit code to verify and enable MFA"]}}
+  "title": "EduPrime MFA-Enabled User Credentials",
+  "generated": "2025-01-08",
+  "users": [
+    {
+      "role": "admin",
+      "email": "admin@eduprime.com",
+      "password": "Admin@123",
+      "mfaEnabled": true,
+      "mfaSecret": "ENNCQP3EMQ2UEU2NIJKWG7KTNQSUMQR6",
+      "otpauthUrl": "otpauth://totp/EduPrime:admin@eduprime.com?secret=ENNCQP3EMQ2UEU2NIJKWG7KTNQSUMQR6&issuer=EduPrime",
+      "remainingBackupCodes": ["ADMIN003", "ADMIN004", "ADMIN005"],
+      "status": "verified"
+    },
+    {
+      "role": "manager",
+      "email": "manager@eduprime.com",
+      "password": "Staff@123",
+      "mfaEnabled": true,
+      "mfaSecret": "ORDECO2CMYSCS33RPM2GWLSUF5LHUKTL",
+      "otpauthUrl": "otpauth://totp/EduPrime:manager@eduprime.com?secret=ORDECO2CMYSCS33RPM2GWLSUF5LHUKTL&issuer=EduPrime",
+      "remainingBackupCodes": ["STAFF002", "STAFF003", "STAFF004", "STAFF005"],
+      "status": "verified"
+    },
+    {
+      "role": "faculty",
+      "email": "faculty@eduprime.com",
+      "password": "Faculty@123",
+      "mfaEnabled": true,
+      "mfaSecret": "KQWCI6SBIJNCGI3CHFXWC4ZFOBCFARKQ",
+      "otpauthUrl": "otpauth://totp/EduPrime:faculty@eduprime.com?secret=KQWCI6SBIJNCGI3CHFXWC4ZFOBCFARKQ&issuer=EduPrime",
+      "remainingBackupCodes": ["FACLT002", "FACLT003", "FACLT004", "FACLT005"],
+      "status": "verified"
+    }
+  ],
+  "loginFlow": {
+    "step1": "POST /api/auth/login with email & password → returns mfaRequired: true, mfaToken",
+    "step2": "POST /api/auth/login/mfa with mfaToken & token (from authenticator app) or backupCode"
+  },
+  "authenticatorSetup": "Scan QR code or manually enter the mfaSecret in Google Authenticator, Authy, or similar app"
+}

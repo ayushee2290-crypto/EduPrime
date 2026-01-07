@@ -1,0 +1,96 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: eduprime-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-eduprime_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-eduprime_secure_pass_2026}
+      POSTGRES_DB: ${DB_NAME:-eduprime}
+    volumes:
+      - postgres_tunnel_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - "5434:5432"
+    networks:
+      - eduprime-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eduprime_user -d eduprime"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Node.js Backend Application
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eduprime-backend
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-eduprime_user}
+      DB_PASSWORD: ${DB_PASSWORD:-eduprime_secure_pass_2026}
+      DB_NAME: ${DB_NAME:-eduprime}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      FRONTEND_URL: https://eduprime.automatebot.shop
+    ports:
+      - "5001:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - eduprime-network
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Cloudflare Tunnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: eduprime-tunnel
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    environment:
+      CLOUDFLARE_TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - backend
+    networks:
+      - eduprime-network
+    restart: unless-stopped
+
+  # n8n Workflow Automation (Optional)
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: eduprime-n8n
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-admin123}
+      - N8N_HOST=n8n.eduprime.automatebot.shop
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://n8n.eduprime.automatebot.shop/
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - eduprime-network
+    restart: unless-stopped
+
+networks:
+  eduprime-network:
+    driver: bridge
+
+volumes:
+  postgres_tunnel_data:
+  n8n_data:
